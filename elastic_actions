@@ -1,0 +1,45 @@
+# Создать одну запись в нашем индексе
+
+POST /movies/_doc/
+{
+  "id": "1",
+  "imdb_rating": 8.5,
+  "genre": "Drama",
+  "title": "The Shawshank Redemption",
+  "description": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+  "director": "Frank Darabont",
+  "actors_names": ["Tim Robbins", "Morgan Freeman"],
+  "writers_names": ["Stephen King", "Frank Darabont"],
+  "actors": [
+    {
+      "id": "actor1",
+      "name": "Tim Robbins"
+    },
+    {
+      "id": "actor2",
+      "name": "Morgan Freeman"
+    }
+  ],
+  "writers": [
+    {
+      "id": "writer1",
+      "name": "Stephen King"
+    },
+    {
+      "id": "writer2",
+      "name": "Frank Darabont"
+    }
+  ]
+}
+
+
+# Создать несколько записей одним запросом
+# Можно еще указать в "create" айдишник для записи {"create": {"_id": "some_hash_for_id"}}, а если пусто, то он установится автоматом.
+
+POST /movies/_bulk
+{"create": {}}
+{"id": "1", "imdb_rating": 8.5, "genre": "Drama", "title": "The Shawshank Redemption", "description": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.", "director": "Frank Darabont", "actors_names": ["Tim Robbins", "Morgan Freeman"], "writers_names": ["Stephen King", "Frank Darabont"], "actors": [{"id": "actor1", "name": "Tim Robbins"}, {"id": "actor2", "name": "Morgan Freeman"}], "writers": [{"id": "writer1", "name": "Stephen King"}, {"id": "writer2", "name": "Frank Darabont"}]}
+{"create": {}}
+{"id": "2", "imdb_rating": 7.9, "genre": "Crime", "title": "The Godfather", "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.", "director": "Francis Ford Coppola", "actors_names": ["Marlon Brando", "Al Pacino"], "writers_names": ["Mario Puzo", "Francis Ford Coppola"], "actors": [{"id": "actor3", "name": "Marlon Brando"}, {"id": "actor4", "name": "Al Pacino"}], "writers": [{"id": "writer3", "name": "Mario Puzo"}, {"id": "writer4", "name": "Francis Ford Coppola"}]}
+{"create": {}}
+{"id": "3", "imdb_rating": 8.8, "genre": "Action", "title": "The Dark Knight", "description": "When the menace known as The Joker emerges from his mysterious past, he wreaks havoc and chaos on the people of Gotham.", "director": "Christopher Nolan", "actors_names": ["Christian Bale", "Heath Ledger"], "writers_names": ["Jonathan Nolan", "Christopher Nolan"], "actors": [{"id": "actor5", "name": "Christian Bale"}, {"id": "actor6", "name": "Heath Ledger"}], "writers": [{"id": "writer5", "name": "Jonathan Nolan"}, {"id": "writer6", "name": "Christopher Nolan"}]}
