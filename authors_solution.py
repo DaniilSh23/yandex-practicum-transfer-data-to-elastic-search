@@ -72,6 +72,7 @@ class ESLoader:
 
 
 class ETL:
+    # Хуета, а не запрос, не актуален
     SQL = '''
         /* Используем CTE для читаемости. Здесь нет прироста
         производительности, поэтому можно поменять на subquery */
@@ -81,8 +82,7 @@ class ETL:
         -- Отметим, что порядок id и имён совпадает
         -- Не стоит забывать про many-to-many связь между
         таблицами фильмов и актёров
-        SELECT m.id, group_concat(a.id) as actors_ids, group_concat(a.name) as
-        actors_names
+        SELECT m.id, group_concat(a.id) as actors_ids, group_concat(a.name) as actors_names
         FROM movies m
         LEFT JOIN movie_actors ma on m.id = ma.movie_id
         LEFT JOIN actors a on ma.actor_id = a.id
@@ -105,26 +105,14 @@ class ETL:
         FROM movies m
         LEFT JOIN x ON m.id = x.id
     '''
+    # Нормальный запрос
+    MY_SQL_QUERY = """
+    
+    """
 
     def __init__(self, conn: sqlite3.Connection, es_loader: ESLoader):
         self.es_loader = es_loader
         self.conn = conn
-
-    def load_writers_names(self) -> dict:
-        """
-        Получаем список всех сценаристов, так как нет возможности
-        получить их в одном запросе
-        :return: словарь всех сценаристов вида
-        {
-        "Writer": {"id": "writer_id", "name": "Writer"},
-        ...
-        }
-        """
-        writers = {}
-        # Используем DISTINCT, чтобы отсекать возможные дубли
-        for writer in self.conn.execute('''SELECT DISTINCT id, name FROM writers'''):
-            writers[writer['id']] = writer
-        return writers
 
     def _transform_row(self, row: dict, writers: dict) -> dict:
         """
@@ -172,6 +160,79 @@ class ETL:
             'description': row['plot'] if row['plot'] != 'N/A' else None
         }
 
+    def load_writers_names(self) -> dict:
+        """
+        Получаем ID и имена всех person с person.role = writer.
+        {
+        "writer_id": {"id": "writer_id", "name": "writer full_name"},
+        ...
+        }
+        """
+        writers = {}
+        sql_query = """
+        SELECT person_film_work.person_id as id, person.full_name as name FROM person_film_work 
+        INNER JOIN person ON person.id = person_film_work.person_id 
+        WHERE person_film_work.role = 'writer';
+        """
+        for writer in self.conn.execute(sql_query):
+            writers[writer['id']] = writer
+        return writers
+
+    def load_actors_ids_and_names(self) -> dict:
+        """
+        Получаем ID и имена всех person с person.role = actor.
+        {
+        "actor_id": {"id": "actor_id", "name": "actor full_name"},
+        ...
+        }
+        """
+        actors = {}
+        sql_query = """
+        SELECT person_film_work.person_id as id, person.full_name as name FROM person_film_work 
+        INNER JOIN person ON person.id = person_film_work.person_id 
+        WHERE person_film_work.role = 'actor';
+        """
+        for actor in self.conn.execute(sql_query):
+            actors[actor['id']] = actor
+        return actors
+
+    def load_directors_names(self) -> dict:
+        """
+        Получаем имена всех person с person.role = director.
+        {
+        "director_id": {"id": "director_id", "name": "director full_name"},
+        ...
+        }
+        """
+        directors = {}
+        sql_query = """
+        SELECT person_film_work.person_id as id, person.full_name as name FROM person_film_work 
+        INNER JOIN person ON person.id = person_film_work.person_id 
+        WHERE person_film_work.role = 'director';
+        """
+        for director in self.conn.execute(sql_query):
+            directors[director['id']] = director
+        return directors
+
+    def load_genres_names(self):
+        """
+        Получаем название жанров и кладем их в словарь, в котором ключом будет film_work_id.
+        Так будет удобнее по фильму достать инфу о жанре.
+        {
+        "film_work_id": {"id": "genre_id", "name": "genre name"},
+        ...
+        }
+        """
+        genres = {}
+        sql_query = """
+        SELECT genre.id, genre.name, genre_film_work.film_work_id FROM genre
+        INNER JOIN genre_film_work ON genre.id = genre_film_work.genre_id
+        GROUP BY genre_film_work.film_work_id;
+        """
+        for genre in self.conn.execute(sql_query):
+            genres[genre['id']] = genre
+        return genres
+
     def load(self, index_name: str):
         """
         Основной метод для вашего ETL.
@@ -180,7 +241,26 @@ class ETL:
         """
         records = []
         writers = self.load_writers_names()
+        actors = self.load_actors_ids_and_names()
+        directors = self.load_directors_names()
+        genres = self.load_genres_names()
+        # TODO: дописать применение actors directors genres.
+        #  Далее нужно доставать фильмы и упаковывать для них записи ES
         for row in self.conn.execute(self.SQL):
             transformed_row = self._transform_row(row, writers)
             records.append(transformed_row)
         self.es_loader.load_to_es(records, index_name)
+
+
+def main():
+    """
+    Основная функция для запуска скрипта.
+    """
+    es_loader = ESLoader(url='http://127.0.0.1:9200')
+    with conn_context(db_path='db.sqlite') as db_connection:
+        etl_obj = ETL(conn=db_connection, es_loader=es_loader)
+        etl_obj.load(index_name='movies')
+
+
+if __name__ == "__main__":
+    main()
