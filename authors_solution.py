@@ -4,11 +4,15 @@
 
 import json
 import logging
+import os
 import sqlite3
 from contextlib import contextmanager
 from typing import List
 from urllib.parse import urljoin
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger()
 
@@ -62,7 +66,7 @@ class ESLoader:
 
         url = urljoin(self.url, '_bulk')
         ca_cert_path = "http_ca.crt"
-        elastic_password = "IMiAXp0Er1qb60sAEN3C"
+        elastic_password = os.environ.get("ELASTIC_PASSWD")
 
         # Создаем объект сессии
         session = requests.Session()
